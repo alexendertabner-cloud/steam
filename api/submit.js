@@ -9,29 +9,60 @@ export default async function handler(req, res) {
   try {
     const { game, steamUrl, platforms, contacts } = req.body
 
-    const fields = Object.entries(contacts).map(([platform, handle]) => ({
-      name: platform,
-      value: String(handle),
-      inline: true,
-    }))
+    const price = game.price_final === 0 ? '🆓 Free' : `💰 €${(game.price_final / 100).toFixed(2)}`
+    const genreList = game.genres.slice(0, 3).join(', ') || '—'
+
+    const contactLines = Object.entries(contacts)
+      .map(([platform, handle]) => `**${platform}** — ${handle}`)
+      .join('\n')
 
     await fetch(process.env.DISCORD_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        content: '@everyone 🚨 **New game submission just came in!**',
         embeds: [{
           color: 0x0073FF,
-          title: `🎮 ${game.name}`,
+          author: {
+            name: 'SideQuest — New Submission',
+            icon_url: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/steamworks_docs/english/sits_login.jpg'
+          },
+          title: game.name,
           url: steamUrl,
-          description: game.short_description,
+          description: game.short_description || 'No description available.',
           thumbnail: { url: game.header_image },
           fields: [
-            { name: 'Steam URL', value: steamUrl, inline: false },
-            { name: 'Genres', value: game.genres.join(', ') || '—', inline: true },
-            { name: 'Price', value: game.price_final === 0 ? 'Free' : `€${(game.price_final / 100).toFixed(2)}`, inline: true },
-            ...fields,
+            {
+              name: '🎮  Game Info',
+              value: `**Genres:** ${genreList}\n**Price:** ${price}`,
+              inline: false,
+            },
+            {
+              name: '🔗  Steam URL',
+              value: `[Open on Steam](${steamUrl})`,
+              inline: false,
+            },
+            {
+              name: '📬  Contact Details',
+              value: contactLines,
+              inline: false,
+            },
+            {
+              name: '✅  Eligibility',
+              value: 'Confirmed by submitter',
+              inline: true,
+            },
+            {
+              name: '🕐  Submitted At',
+              value: new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris', dateStyle: 'medium', timeStyle: 'short' }),
+              inline: true,
+            },
           ],
-          footer: { text: 'SideQuest Submission' },
+          image: { url: game.header_image },
+          footer: {
+            text: 'SideQuest Platform • Reply within 48h',
+            icon_url: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/steamworks_docs/english/sits_login.jpg'
+          },
           timestamp: new Date().toISOString(),
         }]
       })
